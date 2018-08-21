@@ -4,16 +4,19 @@ import time
 import configparser
 from paho import mqtt
 from datetime import date
+from gpiozero import LEDBoard, Button, LED
 
 MANUAL = False
 MQTTC = None
-CONFIG_PATH = '/home/pi/indra_target/config.txt'
+CONFIG_PATH = '/home/pi/indra_target/config'
 LAST_UPDATE = 0
 WATERINGS = [[] for i in range(7)]
 VALVE_OPEN = False
 OPEN_TIME = 0
-
-# TODO Add callback to handle toggle of hardware switch
+LEDS = LEDBoard(red=18, yellow=23, green=24, blue=25)
+MANUAL_SWITCH = Button(12)
+VALVE_SWITCH = Button(16)
+VALVE = LED(20)
 
 
 def check_schedule():
@@ -33,31 +36,33 @@ def check_schedule():
         start_time = (watering[0], watering[1])
         finish_time = (watering[0] + int((watering[1] + watering[2]) / 60), (watering[1] + watering[2]) % 60)
         if start_time <= curr_time <= finish_time:
-            # Remove manual mode if manual and schedule states align
-            if VALVE_OPEN and MANUAL:
-                MANUAL = False
-            elif not VALVE_OPEN:
-                valve(True)
+            # Watering is currently scheduled
+            return True
     # No waterings are currently scheduled
-    else:
-        # Close valve if opened and not in manual
-        if VALVE_OPEN and not MANUAL:
-            valve(False)
-        # Remove manual mode if states align
-        elif not VALVE_OPEN and MANUAL:
-            MANUAL = False
+    return False
 
 
 def valve(open_valve):
-    global VALVE_OPEN
+    global VALVE_OPEN, OPEN_TIME
     log.info('{} valve'.format('Opening' if open_valve else 'Closing'))
-    # TODO Change pin value to open or close valve, possibly publish status message
+    if open_valve:
+        # Change pin value to open valve
+        VALVE.on()
+        # Turn on blue LED
+        LEDS.blue.on()
+        # Store time when valve was opened
+        OPEN_TIME = time.time()
+    else:
+        # Change pin value to close valve
+        VALVE.off()
+        # Turn off blue LED
+        LEDS.blue.off()
     VALVE_OPEN = open_valve
 
 
 def on_disconnect(client, userdata, flags, rc):
     log.error('Device disconnected from AWS')
-    # TODO Update LED
+    LEDS.green.off()
 
 
 def on_connect(client, userdata, flags, rc):
@@ -66,14 +71,15 @@ def on_connect(client, userdata, flags, rc):
     MQTTC.publish('indra/schedule_request',
                   payload=json.dump(LAST_UPDATE),
                   qos=2)
-    # TODO Update LED
+    LEDS.green.on()
 
 
 def on_schedule_receive(client, userdata, message):
     global LAST_UPDATE, WATERINGS
     log.info('Received watering schedule from AWS')
-    WATERINGS = json.loads(message.payload.decode('UTF-8'))
-    LAST_UPDATE = int(time.time())
+    payload = json.loads(message.payload.decode('UTF-8'))
+    WATERINGS = payload['waterings']
+    LAST_UPDATE = payload['timestamp']
 
 
 def on_manual_receive(client, userdata, message):
@@ -114,6 +120,12 @@ def initialize_client():
     MQTTC.message_callback_add('indra/manual', on_manual_receive)
 
 
+def wait_for_connection():
+    # TODO Implement way to check for internet connection
+    while True:
+        time.sleep(1)
+
+
 def get_day():
     return date.isoweekday(date.today()) if date.isoweekday(date.today()) != 7 else 0
 
@@ -126,13 +138,18 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(CONFIG_PATH)
 
+    # Turn on Red LED to indicate successful startup
+    LEDS.red.on()
+
+    # Ensure 3G connection has been established
+    wait_for_connection()
+
+    # Turn on Yellow LED to indicate network attachment
+    LEDS.yellow.on()
+
     # Initialize MQTT Client
     initialize_client()
 
     while True:
-        if WATERINGS:
-            check_schedule()
-        if VALVE_OPEN and MANUAL and time.time() - OPEN_TIME > 30000:
-            MANUAL = False
-            valve(False)
-        time.sleep(60)
+        valve(VALVE_SWITCH.is_pressed() if MANUAL_SWITCH.is_pressed() else check_schedule())
+        time.sleep(10)
