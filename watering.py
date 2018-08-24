@@ -62,7 +62,14 @@ def valve(open_valve):
 
 def on_disconnect(client, userdata, flags, rc):
     log.error('Device disconnected from AWS')
+    # Denote that device is disconnected from AWS
     LEDS.green.off()
+    # Indicate network is down if while loop below locks
+    LEDS.yellow.off()
+    while not check_connection():
+        time.sleep(1)
+    # Indicate that network is up
+    LEDS.yellow.on()
 
 
 def on_connect(client, userdata, flags, rc):
@@ -82,19 +89,11 @@ def on_schedule_receive(client, userdata, message):
     LAST_UPDATE = payload['timestamp']
 
 
-def on_manual_receive(client, userdata, message):
-    global MANUAL, OPEN_TIME
-    command = json.loads(message.payload.decode('UTF-8'))['valve']
-    if not VALVE_OPEN and command == 'open':
-        log.info('Manually opening valve')
-        MANUAL = True
-        valve(True)
-        OPEN_TIME = time.time()
-    elif VALVE_OPEN and command == 'close':
-        log.info('Manually closing valve')
-        MANUAL = True
-        valve(False)
-
+def on_command(client, userdata, message):
+    command = json.loads(message.payload.decode('UTF-8'))
+    if command == 'status':
+        # TODO Send status: Temp, valve, uptime, etc.
+        print('Creating status')
 
 def initialize_client():
     global MQTTC
@@ -115,15 +114,14 @@ def initialize_client():
     MQTTC.subscribe('indra/schedule', 0)
     MQTTC.message_callback_add('indra/schedule', on_schedule_receive)
 
-    # Subscribe to topic for manual commands
-    MQTTC.subscribe('indra/manual', 0)
-    MQTTC.message_callback_add('indra/manual', on_manual_receive)
+    # Subscribe to topic for status queries
+    MQTTC.subscribe('indra/status', 0)
+    MQTTC.message_callback_add('indra/command', on_command)
 
 
-def wait_for_connection():
-    # TODO Implement way to check for internet connection
-    while True:
-        time.sleep(1)
+def check_connection():
+    # TODO Implement way to check if serial network interface is up
+    time.sleep(1)
 
 
 def get_day():
@@ -142,7 +140,8 @@ if __name__ == '__main__':
     LEDS.red.on()
 
     # Ensure 3G connection has been established
-    wait_for_connection()
+    while not check_connection():
+        time.sleep(1)
 
     # Turn on Yellow LED to indicate network attachment
     LEDS.yellow.on()
@@ -151,5 +150,7 @@ if __name__ == '__main__':
     initialize_client()
 
     while True:
+        # Check manual switch and schedule
         valve(VALVE_SWITCH.is_pressed() if MANUAL_SWITCH.is_pressed() else check_schedule())
+        # Sleep for 10 seconds
         time.sleep(10)
