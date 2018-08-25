@@ -14,7 +14,7 @@ Designed to dynamically control drip line irrigation by connecting to a home LAN
 
 ## Pinout
 | GPIO Pin | Input / Output | Connected to...       |
-| -------- | -------------- | --------------------- |
+| :------: | :------------: | :-------------------: |
 | 12       | Input          | Manual switch         |
 | 14       | Input          | Adafruit Fona Rx      |
 | 15       | Output         | Adafruit Fona Tx      |
