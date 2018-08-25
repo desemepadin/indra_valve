@@ -2,6 +2,9 @@ import json
 import logging
 import time
 import configparser
+from urllib import request
+import os
+import re
 from paho import mqtt
 from datetime import date
 from gpiozero import LEDBoard, Button, LED
@@ -92,8 +95,49 @@ def on_schedule_receive(client, userdata, message):
 def on_command(client, userdata, message):
     command = json.loads(message.payload.decode('UTF-8'))
     if command == 'status':
-        # TODO Send status: Temp, valve, uptime, etc.
-        print('Creating status')
+        # Get system uptime and load
+        uptime, load = get_system_uptime_and_load()
+        # Create status object
+        status = {'temp': get_cpu_temp(),
+                  'valve': 'open' if VALVE_OPEN else 'closed',
+                  'load': load,
+                  'uptime': uptime,
+                  'voltage': get_cpu_voltage(),
+                  'speed': get_cpu_speed()}
+        # Send status object
+        MQTTC.publish('indra/status',
+                      payload=status,
+                      qos=2)
+
+
+def get_system_uptime_and_load():
+    output = os.popen('uptime').read().replace('\n', '')
+    days, hour_min = re.search(r'up ([0-9]+) days,[ ]+([0-9]+:[0-9]+)', output).group(1, 2)
+    hours, minutes = hour_min.split(':')
+    uptime = '{0} days, {1} hours, {2} minutes'.format(days, hours, minutes)
+    *_, load = re.search(r'load average: ([0-9]+.[0-9]+),[ ]+([0-9]+.[0-9]+),[ ]+([0-9]+.[0-9]+)',
+                         output).group(1, 2, 3)
+    return uptime, load
+
+
+def get_cpu_temp():
+    # Get CPU temp
+    temp = float(os.popen('vcgencmd measure_temp'.readline()).read().replace('\'C\n', '')[5:])
+    # Convert celsius to fahrenheit
+    return (temp * (9 / 5)) + 32
+
+
+def get_cpu_voltage():
+    # Get CPU voltage
+    values = os.popen('vcgencmd pm_get_status').read().replace('\n', '').split()
+    return float(values[2][8:].replace('v', ''))
+
+
+def get_cpu_speed():
+    # Get CPU speed
+    values = os.popen('vcgencmd pm_get_status').read().replace('\n', '').split()
+    return int(values[0][5:])
+
 
 def initialize_client():
     global MQTTC
@@ -115,13 +159,17 @@ def initialize_client():
     MQTTC.message_callback_add('indra/schedule', on_schedule_receive)
 
     # Subscribe to topic for status queries
-    MQTTC.subscribe('indra/status', 0)
+    MQTTC.subscribe('indra/command', 0)
     MQTTC.message_callback_add('indra/command', on_command)
 
 
 def check_connection():
-    # TODO Implement way to check if serial network interface is up
-    time.sleep(1)
+    # Ensure network interface is connected to web
+    try:
+        request.urlopen('http://1.1.1.1', timeout=5)
+        return True
+    except request.URLError:
+        return False
 
 
 def get_day():
