@@ -11,6 +11,7 @@ Designed to dynamically control drip line irrigation by connecting to a home LAN
 * 4 status LEDs (Red, yellow, green, and blue)
 * 2 manual switches
 * 2-wire normaly closed motorized ball valve
+* Power distribution board
 
 ## Pinout
 | GPIO Pin | Input / Output | Connected to...       |
