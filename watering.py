@@ -23,6 +23,10 @@ VALVE = LED(20)
 
 
 def check_schedule():
+    """
+    Checks watering schedule
+    :return: True if watering is currently scheduled, False otherwise
+    """
     global MANUAL
     log.info('Checking schedule')
     # Get any waterings that wrap from previous day
@@ -46,6 +50,10 @@ def check_schedule():
 
 
 def valve(open_valve):
+    """
+    Opens or closes valve
+    :param open_valve: True to open valve, False to close valve
+    """
     global VALVE_OPEN, OPEN_TIME
     log.info('{} valve'.format('Opening' if open_valve else 'Closing'))
     if open_valve:
@@ -111,6 +119,10 @@ def on_command(client, userdata, message):
 
 
 def get_system_uptime_and_load():
+    """
+    Gets both system uptime and percent load over past 15 minutes using same call
+    :return: Tuple of uptime and load stored as strings
+    """
     output = os.popen('uptime').read().replace('\n', '')
     days, hour_min = re.search(r'up ([0-9]+) days,[ ]+([0-9]+:[0-9]+)', output).group(1, 2)
     hours, minutes = hour_min.split(':')
@@ -121,25 +133,38 @@ def get_system_uptime_and_load():
 
 
 def get_cpu_temp():
-    # Get CPU temp
+    """
+    Gets temperature of CPU
+    :return: Temperature in degrees fahrenheit
+    """
     temp = float(os.popen('vcgencmd measure_temp'.readline()).read().replace('\'C\n', '')[5:])
     # Convert celsius to fahrenheit
     return (temp * (9 / 5)) + 32
 
 
 def get_cpu_voltage():
-    # Get CPU voltage
+    """
+    Gets voltage of CPU
+    :return: Voltage of CPU
+    """
     values = os.popen('vcgencmd pm_get_status').read().replace('\n', '').split()
     return float(values[2][8:].replace('v', ''))
 
 
 def get_cpu_speed():
-    # Get CPU speed
+    """
+    Gets targeted speed of CPU
+    :return: Speed of CPU in Hz
+    """
     values = os.popen('vcgencmd pm_get_status').read().replace('\n', '').split()
     return int(values[0][5:])
 
 
 def initialize_client():
+    """
+    Initializes the MQTT client
+    :return: None
+    """
     global MQTTC
     log.info('Initializing MQTT client')
     # Init MQTT client
@@ -164,7 +189,10 @@ def initialize_client():
 
 
 def check_connection():
-    # Ensure network interface is connected to web
+    """
+    Ensures network interface is connected to the web
+    :return: True if device is connected, else False
+    """
     try:
         request.urlopen('http://1.1.1.1', timeout=5)
         return True
@@ -173,6 +201,10 @@ def check_connection():
 
 
 def get_day():
+    """
+    Gets day of week as an integer value to use for week calendar list
+    :return: 0 for Sunday, 1 for Monday, ... , 7 for Saturday
+    """
     return date.isoweekday(date.today()) if date.isoweekday(date.today()) != 7 else 0
 
 
