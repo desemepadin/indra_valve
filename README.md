@@ -16,10 +16,10 @@ Designed to dynamically control drip line irrigation by connecting to a home LAN
 ## Pinout
 | GPIO Pin | Input / Output | Connected to...       |
 | :------: | :------------: | :-------------------: |
-| 12       | Input          | Manual switch         |
+| 17       | Input          | Manual switch         |
 | 14       | Output         | Adafruit Fona Rx      |
 | 15       | Input          | Adafruit Fona Tx      |
-| 16       | Input          | Valve position switch |
+| 5        | Input          | Valve position switch |
 | 18       | Output         | Red LED               |
 | 20       | Output         | Valve control         |
 | 23       | Output         | Yellow LED            |

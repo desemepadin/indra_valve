@@ -17,8 +17,8 @@ WATERINGS = [[] for i in range(7)]
 VALVE_OPEN = False
 OPEN_TIME = 0
 LEDS = LEDBoard(red=18, yellow=23, green=24, blue=25)
-MANUAL_SWITCH = Button(12)
-VALVE_SWITCH = Button(16)
+MANUAL_SWITCH = Button(17)
+VALVE_SWITCH = Button(5)
 VALVE = LED(20)
 
 
