@@ -38,3 +38,5 @@ Must have an AWS account to use AWS IoT.  In order for the device to connect to 
 * MQTT_KEEPALIVE
 
 ## CDMA
+
+Used [this guide](https://learn.adafruit.com/fona-tethering-to-raspberry-pi-or-beaglebone-black/overview) from Adafruit to use the Adafruit Fona as an access point to AWS
