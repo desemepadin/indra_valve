@@ -36,3 +36,5 @@ Must have an AWS account to use AWS IoT.  In order for the device to connect to 
 * MQTT_HOST
 * MQTT_PORT
 * MQTT_KEEPALIVE
+
+## CDMA

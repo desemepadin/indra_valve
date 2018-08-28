@@ -57,14 +57,14 @@ def valve(open_valve):
     global VALVE_OPEN, OPEN_TIME
     log.info('{} valve'.format('Opening' if open_valve else 'Closing'))
     if open_valve:
-        # Change pin value to open valve
+        # Open valve
         VALVE.on()
         # Turn on blue LED
         LEDS.blue.on()
         # Store time when valve was opened
         OPEN_TIME = time.time()
     else:
-        # Change pin value to close valve
+        # Close valve
         VALVE.off()
         # Turn off blue LED
         LEDS.blue.off()
@@ -72,6 +72,9 @@ def valve(open_valve):
 
 
 def on_disconnect(client, userdata, flags, rc):
+    """
+    Device disconnected from AWS, update LEDs and check for CDMA connection
+    """
     log.error('Device disconnected from AWS')
     # Denote that device is disconnected from AWS
     LEDS.green.off()
@@ -84,7 +87,9 @@ def on_disconnect(client, userdata, flags, rc):
 
 
 def on_connect(client, userdata, flags, rc):
-    global MQTTC
+    """
+    Device just connected, request new schedule
+    """
     log.info('Connected/Reconnected to AWS')
     MQTTC.publish('indra/schedule_request',
                   payload=json.dump(LAST_UPDATE),
@@ -93,6 +98,9 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_schedule_receive(client, userdata, message):
+    """
+    Parse and load schedule
+    """
     global LAST_UPDATE, WATERINGS
     log.info('Received watering schedule from AWS')
     payload = json.loads(message.payload.decode('UTF-8'))
@@ -101,6 +109,9 @@ def on_schedule_receive(client, userdata, message):
 
 
 def on_command(client, userdata, message):
+    """
+    Respond to command sent to device
+    """
     command = json.loads(message.payload.decode('UTF-8'))
     if command == 'status':
         # Get system uptime and load
@@ -167,6 +178,7 @@ def initialize_client():
     """
     global MQTTC
     log.info('Initializing MQTT client')
+
     # Init MQTT client
     MQTTC = mqtt.Client()
     MQTTC.on_connect = on_connect
