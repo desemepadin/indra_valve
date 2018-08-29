@@ -93,7 +93,7 @@ def on_connect(client, userdata, flags, rc):
     log.info('Connected/Reconnected to AWS')
     MQTTC.publish('indra/schedule_request',
                   payload=json.dump(LAST_UPDATE),
-                  qos=2)
+                  qos=1)
     LEDS.green.on()
 
 
@@ -126,7 +126,7 @@ def on_command(client, userdata, message):
         # Send status object
         MQTTC.publish('indra/status',
                       payload=status,
-                      qos=2)
+                      qos=1)
 
 
 def get_system_uptime_and_load():
