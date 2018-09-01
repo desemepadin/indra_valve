@@ -5,13 +5,13 @@ import configparser
 from urllib import request
 import os
 import re
-from paho import mqtt
+import paho.mqtt.client as mqtt
 from datetime import date
 from gpiozero import LEDBoard, Button, LED
 
 MANUAL = False
 MQTTC = None
-CONFIG_PATH = '/home/pi/indra_target/config'
+CONFIG_PATH = '/home/pi/config'
 LAST_UPDATE = 0
 WATERINGS = [[] for i in range(7)]
 VALVE_OPEN = False
@@ -91,8 +91,9 @@ def on_connect(client, userdata, flags, rc):
     Device just connected, request new schedule
     """
     log.info('Connected/Reconnected to AWS')
+    p = {'timestamp': LAST_UPDATE}
     MQTTC.publish('indra/schedule_request',
-                  payload=json.dump(LAST_UPDATE),
+                  payload=json.dumps(p),
                   qos=1)
     LEDS.green.on()
 
@@ -183,12 +184,12 @@ def initialize_client():
     MQTTC = mqtt.Client()
     MQTTC.on_connect = on_connect
     MQTTC.on_disconnect = on_disconnect
-    MQTTC.tls_set(ca_certs=config['MQTT_CA_CERT'],
-                  certfile=config['MQTT_CERTFILE'],
-                  keyfile=config['MQTT_KEYFILE'])
-    MQTTC.connect(host=config['MQTT_HOST'],
-                  port=config['MQTT_PORT'],
-                  keepalive=config['MQTT_KEEPALIVE'])
+    MQTTC.tls_set(ca_certs=config['DEFAULT']['MQTT_CA_CERT'],
+                  certfile=config['DEFAULT']['MQTT_CERTFILE'],
+                  keyfile=config['DEFAULT']['MQTT_KEYFILE'])
+    MQTTC.connect(host=config['DEFAULT']['MQTT_HOST'],
+                  port=int(config['DEFAULT']['MQTT_PORT']),
+                  keepalive=int(config['DEFAULT']['MQTT_KEEPALIVE']))
     MQTTC.loop_start()
 
     # Subscribe to topic for receiving schedule
@@ -222,7 +223,8 @@ def get_day():
 
 if __name__ == '__main__':
     # Create logging object
-    log = logging()
+    log = logging
+    log.basicConfig(filename='/tmp/watering.log', level=logging.ERROR)
 
     # Parse config file
     config = configparser.ConfigParser()
@@ -243,6 +245,9 @@ if __name__ == '__main__':
 
     while True:
         # Check manual switch and schedule
-        valve(VALVE_SWITCH.is_pressed() if MANUAL_SWITCH.is_pressed() else check_schedule())
+        if MANUAL_SWITCH.is_pressed:
+            valve(VALVE_SWITCH.is_pressed)
+        else:
+            check_schedule()
         # Sleep for 10 seconds
         time.sleep(10)
