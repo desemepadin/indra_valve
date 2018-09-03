@@ -180,25 +180,30 @@ def initialize_client():
     global MQTTC
     log.info('Initializing MQTT client')
 
-    # Init MQTT client
-    MQTTC = mqtt.Client()
-    MQTTC.on_connect = on_connect
-    MQTTC.on_disconnect = on_disconnect
-    MQTTC.tls_set(ca_certs=config['DEFAULT']['MQTT_CA_CERT'],
-                  certfile=config['DEFAULT']['MQTT_CERTFILE'],
-                  keyfile=config['DEFAULT']['MQTT_KEYFILE'])
-    MQTTC.connect(host=config['DEFAULT']['MQTT_HOST'],
-                  port=int(config['DEFAULT']['MQTT_PORT']),
-                  keepalive=int(config['DEFAULT']['MQTT_KEEPALIVE']))
-    MQTTC.loop_start()
+    try:
+        # Init MQTT client
+        MQTTC = mqtt.Client()
+        MQTTC.on_connect = on_connect
+        MQTTC.on_disconnect = on_disconnect
+        MQTTC.tls_set(ca_certs=config['DEFAULT']['MQTT_CA_CERT'],
+                      certfile=config['DEFAULT']['MQTT_CERTFILE'],
+                      keyfile=config['DEFAULT']['MQTT_KEYFILE'])
+        MQTTC.connect(host=config['DEFAULT']['MQTT_HOST'],
+                      port=int(config['DEFAULT']['MQTT_PORT']),
+                      keepalive=int(config['DEFAULT']['MQTT_KEEPALIVE']))  #TODO CHECK KEEPALIVE VALUE AND POSSIBLY INCREASE
+        MQTTC.loop_start()
 
-    # Subscribe to topic for receiving schedule
-    MQTTC.subscribe('indra/schedule', 0)
-    MQTTC.message_callback_add('indra/schedule', on_schedule_receive)
+        # Subscribe to topic for receiving schedule
+        MQTTC.subscribe('indra/schedule', 0)
+        MQTTC.message_callback_add('indra/schedule', on_schedule_receive)
 
-    # Subscribe to topic for status queries
-    MQTTC.subscribe('indra/command', 0)
-    MQTTC.message_callback_add('indra/command', on_command)
+        # Subscribe to topic for status queries
+        MQTTC.subscribe('indra/command', 0)
+        MQTTC.message_callback_add('indra/command', on_command)
+        return True
+    except Exception as e:
+        log.error(e)
+        return False
 
 
 def check_connection():
@@ -209,7 +214,8 @@ def check_connection():
     try:
         request.urlopen('http://1.1.1.1', timeout=5)
         return True
-    except request.URLError:
+    except Exception as e:
+        log.error(e)
         return False
 
 
@@ -241,7 +247,9 @@ if __name__ == '__main__':
     LEDS.yellow.on()
 
     # Initialize MQTT Client
-    initialize_client()
+    while not initialize_client():
+        time.sleep(1)
+        LEDS.green.blink()
 
     while True:
         # Check manual switch and schedule
