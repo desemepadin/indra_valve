@@ -17,9 +17,9 @@ WATERINGS = [[] for i in range(7)]
 VALVE_OPEN = False
 OPEN_TIME = 0
 LEDS = LEDBoard(red=18, yellow=23, green=24, blue=25)
-MANUAL_SWITCH = Button(17)
-VALVE_SWITCH = Button(5)
-VALVE = LED(20)
+MANUAL_SWITCH = Button(17, pull_up=False)
+VALVE_SWITCH = Button(5, pull_up=False)
+VALVE = LED(16)
 
 
 def check_schedule():
@@ -116,32 +116,25 @@ def on_command(client, userdata, message):
     command = json.loads(message.payload.decode('UTF-8'))
     if command == 'status':
         # Get system uptime and load
-        uptime, load = get_system_uptime_and_load()
+        uptime = get_system_uptime()
         # Create status object
         status = {'temp': get_cpu_temp(),
                   'valve': 'open' if VALVE_OPEN else 'closed',
-                  'load': load,
                   'uptime': uptime,
                   'voltage': get_cpu_voltage(),
                   'speed': get_cpu_speed()}
         # Send status object
         MQTTC.publish('indra/status',
-                      payload=status,
+                      payload=json.dumps(status),
                       qos=1)
 
 
-def get_system_uptime_and_load():
+def get_system_uptime():
     """
     Gets both system uptime and percent load over past 15 minutes using same call
     :return: Tuple of uptime and load stored as strings
     """
-    output = os.popen('uptime').read().replace('\n', '')
-    days, hour_min = re.search(r'up ([0-9]+) days,[ ]+([0-9]+:[0-9]+)', output).group(1, 2)
-    hours, minutes = hour_min.split(':')
-    uptime = '{0} days, {1} hours, {2} minutes'.format(days, hours, minutes)
-    *_, load = re.search(r'load average: ([0-9]+.[0-9]+),[ ]+([0-9]+.[0-9]+),[ ]+([0-9]+.[0-9]+)',
-                         output).group(1, 2, 3)
-    return uptime, load
+    return os.popen('uptime -p').read().replace('\n', '')
 
 
 def get_cpu_temp():
@@ -149,7 +142,7 @@ def get_cpu_temp():
     Gets temperature of CPU
     :return: Temperature in degrees fahrenheit
     """
-    temp = float(os.popen('vcgencmd measure_temp'.readline()).read().replace('\'C\n', '')[5:])
+    temp = float(os.popen('vcgencmd measure_temp').readline().replace('\'C\n', '')[5:])
     # Convert celsius to fahrenheit
     return (temp * (9 / 5)) + 32
 
@@ -251,11 +244,18 @@ if __name__ == '__main__':
         time.sleep(1)
         LEDS.green.blink()
 
+    while LAST_UPDATE == 0:
+        p = {'timestamp': LAST_UPDATE}
+        MQTTC.publish('indra/schedule_request',
+                      payload=json.dumps(p),
+                      qos=1)
+        time.sleep(5)
+
     while True:
         # Check manual switch and schedule
         if MANUAL_SWITCH.is_pressed:
             valve(VALVE_SWITCH.is_pressed)
         else:
-            check_schedule()
+            valve(check_schedule())
         # Sleep for 10 seconds
         time.sleep(10)
