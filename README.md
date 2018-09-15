@@ -1,4 +1,4 @@
-# indra_pi_valve
+# indra_valve
 
 #### Irrigation valve controller written in Python for a Raspberry Pi
 
